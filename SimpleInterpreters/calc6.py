@@ -1,6 +1,8 @@
 # Constants
 
 INTEGER = 'INTEGER'
+LPAREN = '('
+RPAREN = ')'
 PLUS = 'PLUS'
 MINUS = 'MINUS'
 MULTIPLICATION = 'MULTIPLICATION'
@@ -89,6 +91,14 @@ class Lexer:
                 self.advance()
                 return Token(DIVISION, '/')
 
+            if self.current_char == '(':
+                self.advance()
+                return Token(LPAREN, '(')
+
+            if self.current_char == ')':
+                self.advance()
+                return Token(RPAREN, ')')
+
             self.error()
 
         return Token(EOF, None)
@@ -119,10 +129,16 @@ class Interpreter:
             )
 
     def factor(self):
-        """ factor: INTEGER """
+        """ factor: INTEGER | LPAREN expr RPAREN """
         token = self.current_token
-        self.eat(INTEGER)  # a factor is an INTEGER
-        return token.value
+        if token.type == INTEGER:
+            self.eat(INTEGER)  # a factor is an INTEGER
+            return token.value
+        elif token.type == LPAREN:
+            self.eat(LPAREN)
+            result = self.expr()
+            self.eat(RPAREN)
+            return result
 
     def term(self):
         """
