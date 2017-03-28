@@ -86,12 +86,12 @@ class Lexer(object):
         """
         result = self.current_char
         self.advance()
-        if self.current_char == IMPLY_VAL2:
-            result += self.current_char
+        result += self.current_char
+        if result == IMPLY_VAL:
             self.advance()
             return result
         else:
-            self.error(expecting=IMPLY_VAL, got=self.current_char)
+            self.error(expecting=IMPLY_VAL, got=result)
 
     def skip_whitespace(self):
         while self.current_char is not None and self.current_char.isspace():
@@ -267,7 +267,7 @@ class Interpreter(object):
                     return False
             else:
                 return False
-        elif self.current_token.type in (EOF, RPAREN):
+        elif self.current_token.type in (EOF, RPAREN):  # selection set
             return True
         else:
             self.error(expecting=IMPLY_TAIL_LIST, got=self.current_token.value)
@@ -313,7 +313,7 @@ class Interpreter(object):
                     return False
             else:
                 return False
-        elif self.current_token.type in (IMPLY, EOF, RPAREN):
+        elif self.current_token.type in (IMPLY, EOF, RPAREN):   # selection set
             return True
         else:
             self.error(expecting=OR_TAIL_LIST, got=self.current_token.value)
@@ -359,7 +359,7 @@ class Interpreter(object):
                     return False
             else:
                 return False
-        elif self.current_token.type in (EOF, RPAREN, OR, IMPLY):
+        elif self.current_token.type in (EOF, RPAREN, OR, IMPLY):   # selection set
             return True
         else:
             self.error(expecting=AND_TAIL_LIST, got=self.current_token.value)
@@ -426,10 +426,13 @@ class Interpreter(object):
     def eval(self):
         """Boolean expression parser / interpreter
 
-            T ^ F
+            Valid boolean statements must start with a <B> and end
+            with a '.'
+
+            See grammar rules of each individual non-terminal method above
 
         """
-        if self.bool_term():
+        if self.bool_stmt():
             return str(self.stack)
 
 
