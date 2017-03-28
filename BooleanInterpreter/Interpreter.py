@@ -152,7 +152,8 @@ class Interpreter(object):
             ))
         else:
             raise Exception('Syntax error')
-
+        
+    # TODO: replace all instances of self.current_token = self.lexer.get_current_token() with self.eat(TOKEN EXPECTED)
     def eat(self, token_type):
         """Consume the token if the current token matches the passed token
 
@@ -191,7 +192,7 @@ class Interpreter(object):
 
     def imply_tail(self):
         if self.current_token.value == IMPLY_VAL1 + IMPLY_VAL2:
-            self.current_token = self.lexer.get_next_token()
+            self.eat(IMPLY)
             if self.or_term():
                 if self.imply_tail():
                     temp1 = self.stack.pop()
