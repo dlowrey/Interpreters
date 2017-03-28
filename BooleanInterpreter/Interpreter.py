@@ -64,7 +64,7 @@ class Lexer(object):
     def __init__(self, text):
         self.text = text
         self.pos = 0  # self.pos used to index text
-        self.current_char = text[self.pos]  # set the current_char to the first character in the text
+        self.current_char = text[self.pos]
 
     @staticmethod
     def error(expecting=None, got=None):
@@ -72,7 +72,8 @@ class Lexer(object):
             Can be called with all, one, or no parameters.
         """
         if expecting is not None:
-            raise ValueError('Expecting \'{expecting}\', got \'{got}\' instead.'.format(
+            raise ValueError('Expecting \'{expecting}\','
+                             ' got \'{got}\' instead.'.format(
                 expecting=expecting,
                 got=got,
             ))
@@ -195,7 +196,8 @@ class Interpreter(object):
     def error(expecting, got):
         """Raise a detailed Syntax error exception"""
         if expecting is not None and got is not None:
-            raise SyntaxError('Expecting \'{expecting}\', got \'{got}\' instead.'.format(
+            raise SyntaxError('Expecting \'{expecting}\','
+                              ' got \'{got}\' instead.'.format(
                 expecting=expecting,
                 got=got,
             ))
@@ -206,12 +208,14 @@ class Interpreter(object):
         """Consume the token if the current token matches the passed token
 
         Compares the input's token type to the expected token that is passed.
-        If they match, the token is consumed and `self.current_token` is set to the
-        next token.
+        If they match, the token is consumed and `self.current_token` is set to
+        the next token.
+
         Arguments:
             :token_type: the type of token that the interpreter expects
         Raises:
-            Exception: an Exception describing invalid syntax (the token in the input
+            Exception: an Exception describing invalid syntax (the token in the
+                       input
             string did not match the expected token
         """
         if self.current_token.token_type == token_type:
@@ -225,8 +229,8 @@ class Interpreter(object):
         <B> := <IT>.
         where <B> is Bool_stmt
 
-        :return: True if `self.current_token` starts and completes one of the RHS of an Bool_stmt rule above,
-                false otherwise
+        :return: True if `self.current_token` starts and completes one of
+                the RHS of an Bool_stmt rule above, false otherwise
         """
         if self.imply_term():
             return self.current_token.token_type == EOF
@@ -241,8 +245,8 @@ class Interpreter(object):
                   :=
         where <IT> is Imply_term
 
-        :return: True if `self.current_token` starts and completes one of the RHS of an Imply_term rule above,
-                false otherwise
+        :return: True if `self.current_token` starts and completes one of
+                the RHS of an Imply_term rule above, false otherwise
         """
         if self.or_term():
             return self.imply_tail()
@@ -257,16 +261,16 @@ class Interpreter(object):
                   :=
         where <IT_Tail> is Imply_tail
 
-        :return: True if `self.current_token` starts and completes one of the RHS of an Imply_tail rule above,
-                false otherwise
+        :return: True if `self.current_token` starts and completes one of
+                the RHS of an Imply_tail rule above, false otherwise
         """
         if self.current_token.token_type == IMPLY:
             self.eat(IMPLY)
             if self.or_term():
                 if self.imply_tail():
-                    temp2 = self.stack.pop()  # the second argument is at the top of the stack
+                    temp2 = self.stack.pop()  # 2nd arg at top of stack
                     temp1 = self.stack.pop()
-                    self.stack.append((not temp1) or temp2)  # T->F is equivalent to ~T or F
+                    self.stack.append((not temp1) or temp2)  # T->F => ~T or F
                     return True
                 else:
                     return False
@@ -284,8 +288,8 @@ class Interpreter(object):
         <OT> := <AT> <OT_Tail>
         where <OT> is Or_term
 
-        :return: True if `self.current_token` starts and completes one of the RHS of an Or_term rule above,
-                false otherwise
+        :return: True if `self.current_token` starts and completes one of
+                the RHS of an Or_term rule above, false otherwise
         """
         if self.and_term():
             if self.or_tail():
@@ -303,8 +307,8 @@ class Interpreter(object):
                   :=
         where <OT_Tail> is Or_tail
 
-        :return: True if `self.current_token` starts and completes one of the RHS of an Or_tail rule above,
-                false otherwise
+        :return: True if `self.current_token` starts and completes one of
+                the RHS of an Or_tail rule above, false otherwise
         """
         if self.current_token.token_type == OR:
             self.eat(OR)
@@ -318,7 +322,7 @@ class Interpreter(object):
                     return False
             else:
                 return False
-        elif self.current_token.token_type in (IMPLY, EOF, RPAREN):  # selection set
+        elif self.current_token.token_type in (IMPLY, EOF, RPAREN):
             return True
         else:
             self.error(expecting=OR_TAIL_LIST, got=self.current_token.value)
@@ -330,8 +334,8 @@ class Interpreter(object):
         <AT> := <L><AT_Tail>
         where <AT> is And_term
 
-        :return: True if `self.current_token` starts and completes one of the of an And_term rule above,
-                false otherwise
+        :return: True if `self.current_token` starts and completes one of
+                the of an And_term rule above, false otherwise
         """
         if self.literal():
             return self.and_tail()
@@ -346,19 +350,19 @@ class Interpreter(object):
                   :=
         where <AT_Tail> is And_tail
 
-        :return: True if `self.current_token` starts and completes one of the RHS of an And_tail rule above,
-                false otherwise
+        :return: True if `self.current_token` starts and completes one of
+                the RHS of an And_tail rule above, false otherwise
         """
         if self.current_token.token_type == AND:
             self.eat(AND)
             if self.literal():
-                temp2 = self.stack.pop()  # the second argument is at the top of the stack
+                temp2 = self.stack.pop()  # 2nd arg at top of stack
                 temp1 = self.stack.pop()
                 self.stack.append(temp1 and temp2)
                 return self.and_tail()
             else:
                 return False
-        elif self.current_token.token_type in (EOF, RPAREN, OR, IMPLY):  # selection set
+        elif self.current_token.token_type in (EOF, RPAREN, OR, IMPLY):
             return True
         else:
             self.error(expecting=AND_TAIL_LIST, got=self.current_token.value)
@@ -371,8 +375,8 @@ class Interpreter(object):
             := ~<L>
         where <L> is Literal
 
-        :return: True if `self.current_token`starts and completes one of the of a Literal rule above,
-                false otherwise
+        :return: True if `self.current_token`starts and completes one of
+                the of a Literal rule above, false otherwise
         """
         if self.current_token.token_type == NOT:
             self.eat(NOT)
@@ -395,8 +399,8 @@ class Interpreter(object):
             := (<IT>)
         where <A> is Atom
 
-        :return: True if `self.current_token` starts and completes one of the RHS of an Atom rule above,
-                false otherwise
+        :return: True if `self.current_token` starts and completes one of
+                the RHS of an Atom rule above, false otherwise
         """
         if self.current_token.token_type == TRUE:
             self.eat(TRUE)
