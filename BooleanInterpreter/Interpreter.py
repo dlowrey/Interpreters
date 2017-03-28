@@ -3,11 +3,21 @@ TRUE, TRUE_VAL = 'TRUE', 'T'
 FALSE, FALSE_VAL = 'FALSE', 'F'
 AND, AND_VAL = 'AND', '^'
 OR, OR_VAL = 'OR', 'v'
-IMPLY, IMPLY_VAL1, IMPLY_VAL2 = 'IMPLIES', '-', '>'
+IMPLY, IMPLY_VAL, IMPLY_VAL1, IMPLY_VAL2 = 'IMPLIES', '->','-', '>'
 NOT, NOT_VAL = 'NOT', '~'
 LPAREN, LPAREN_VAL = 'LPAREN', '('
 RPAREN, RPAREN_VAL = 'RPAREN', ')'
-EMPTY, EMPTY_VAL = 'EMPTY', 'e'
+
+BOOL_LIST = '~ , T, F, or ('
+IMPLY_LIST = '~, T, F ('
+IMPLY_TAIL_LIST = '->, ., )'
+OR_LIST = '~, T, F, ('
+OR_TAIL_LIST = 'v, ->, ., )'
+AND_LIST = '~, T, F, ('
+AND_TAIL_LIST = '^, v, ->, ., )'
+LITERAL_LIST = 'T, F, (, ~'
+ATOM_LIST = 'T, F, ~, ('
+
 
 
 class Token(object):
@@ -48,10 +58,14 @@ class Lexer(object):
         self.pos = 0  # self.pos used to index text
         self.current_char = text[self.pos]  # set the current_char to the first character in the text
 
-    def error(self, msg):
-        raise Exception("Invalid character: {msg}".format(
-            msg=msg
-        ))
+    def error(self, expecting=None, got=None):
+        if expecting is not None:
+            raise Exception('Expecting \'{expecting}\', got \'{got}\' instead.'.format(
+                expecting=expecting,
+                got=got,
+            ))
+        else:
+            raise Exception('Invalid character: \'{got}\''.format(got=got))
 
     def advance(self):
         """Advance the `pos` pointer and set the `current_char` variable"""
@@ -62,6 +76,8 @@ class Lexer(object):
             self.current_char = None
 
     def implies(self):
+        """Creates an imply '->' character
+        """
         result = self.current_char
         self.advance()
         if self.current_char == IMPLY_VAL2:
@@ -69,10 +85,7 @@ class Lexer(object):
             self.advance()
             return result
         else:
-            self.error("expected {end_of_implies} got {char}".format(
-                end_of_implies=IMPLY_VAL2,
-                char=self.current_char
-            ))
+            self.error(expecting=IMPLY_VAL, got=self.current_char)
 
     def skip_whitespace(self):
         while self.current_char is not None and self.current_char.isspace():
@@ -86,40 +99,45 @@ class Lexer(object):
         """
         while self.current_char is not EOF_VAL:
 
-            if self.current_char.isspace():
+            if self.current_char is None:
+                self.error(expecting=EOF_VAL, got=self.current_char)
+
+            elif self.current_char.isspace():
                 self.skip_whitespace()
                 continue
 
-            if self.current_char == AND_VAL:
+            elif self.current_char == AND_VAL:
                 self.advance()
                 return Token(AND, AND_VAL)
 
-            if self.current_char == OR_VAL:
+            elif self.current_char == OR_VAL:
                 self.advance()
                 return Token(OR, OR_VAL)
 
-            if self.current_char == IMPLY_VAL1:
+            elif self.current_char == IMPLY_VAL1:
                 return Token(IMPLY, self.implies())
 
-            if self.current_char == NOT_VAL:
+            elif self.current_char == NOT_VAL:
                 self.advance()
                 return Token(NOT, NOT_VAL)
 
-            if self.current_char == TRUE_VAL:
+            elif self.current_char == TRUE_VAL:
                 self.advance()
                 return Token(TRUE, TRUE_VAL)
 
-            if self.current_char == FALSE_VAL:
+            elif self.current_char == FALSE_VAL:
                 self.advance()
                 return Token(FALSE, FALSE_VAL)
 
-            if self.current_char == LPAREN_VAL:
+            elif self.current_char == LPAREN_VAL:
                 self.advance()
                 return Token(LPAREN, LPAREN_VAL)
 
-            if self.current_char == RPAREN_VAL:
+            elif self.current_char == RPAREN_VAL:
                 self.advance()
                 return Token(RPAREN, RPAREN_VAL)
+            else:
+                self.error(got=self.current_char)
 
         return Token(EOF, EOF_VAL)
 
@@ -142,17 +160,15 @@ class Interpreter(object):
         self.current_token = self.lexer.get_next_token()
         self.stack = []
 
-
     def error(self, expecting, got):
         if expecting is not None and got is not None:
-            raise Exception('Expecting {expecting}, got {got} instead. VALUE: {val}'.format(
+            raise Exception('Expecting \'{expecting}\', got \'{got}\' instead.'.format(
                 expecting=expecting,
                 got=got,
-                val=self.current_token.value
             ))
         else:
             raise Exception('Syntax error')
-        
+
     # TODO: replace all instances of self.current_token = self.lexer.get_current_token() with self.eat(TOKEN EXPECTED)
     def eat(self, token_type):
         """Consume the token if the current token matches the passed token
@@ -173,12 +189,13 @@ class Interpreter(object):
 
     def bool_term(self):
         if self.imply_term():
-            if self.current_token.value == EOF_VAL:
+            if self.current_token.type == EOF:
                 return True
             else:
                 return False
         else:
-            self.error(expecting='BOOL TERM', got=self.current_token.type)
+            self.error(expecting=BOOL_LIST, got=self.current_token.value)
+            return False
 
     def imply_term(self):
         if self.or_term():
@@ -187,26 +204,26 @@ class Interpreter(object):
             else:
                 return False
         else:
-            self.error(expecting='IMPLY TERM', got=self.current_token.type)
+            self.error(expecting=IMPLY_LIST, got=self.current_token.value)
             return False
 
     def imply_tail(self):
-        if self.current_token.value == IMPLY_VAL1 + IMPLY_VAL2:
+        if self.current_token.type == IMPLY:
             self.eat(IMPLY)
             if self.or_term():
                 if self.imply_tail():
-                    temp1 = self.stack.pop()
                     temp2 = self.stack.pop()
-                    self.stack.append((not temp2) or temp1)
+                    temp1 = self.stack.pop()
+                    self.stack.append((not temp1) or temp2)
                     return True
                 else:
                     return False
             else:
                 return False
-        elif self.current_token.value in (EOF_VAL, RPAREN_VAL):
+        elif self.current_token.type in (EOF, RPAREN):
             return True
         else:
-            self.error(expecting='IMPLY TAIL', got=self.current_token.type)
+            self.error(expecting=IMPLY_TAIL_LIST, got=self.current_token.value)
             return False
 
     def or_term(self):
@@ -216,25 +233,26 @@ class Interpreter(object):
             else:
                 return False
         else:
-            self.error(expecting='OR TERM', got=self.current_token.type)
+            self.error(expecting=OR_LIST, got=self.current_token.value)
+            return False
 
     def or_tail(self):
-        if self.current_token.value == OR_VAL:
-            self.current_token = self.lexer.get_next_token()
+        if self.current_token.type == OR:
+            self.eat(OR)
             if self.and_term():
                 if self.or_tail():
-                    temp1 = self.stack.pop()
                     temp2 = self.stack.pop()
+                    temp1 = self.stack.pop()
                     self.stack.append(temp1 or temp2)
                     return True
                 else:
                     return False
             else:
                 return False
-        elif self.current_token.value in (IMPLY_VAL1+IMPLY_VAL2, EOF_VAL, RPAREN_VAL):
+        elif self.current_token.type in (IMPLY, EOF, RPAREN):
             return True
         else:
-            self.error(expecting='OR TAIL', got=self.current_token.type)
+            self.error(expecting=OR_TAIL_LIST, got=self.current_token.value)
             return False
 
     def and_term(self):
@@ -244,15 +262,15 @@ class Interpreter(object):
             else:
                 return False
         else:
-            self.error(expecting='AND TERM', got=self.current_token.type)
+            self.error(expecting=AND_LIST, got=self.current_token.value)
             return False
 
     def and_tail(self):
-        if self.current_token.value == AND_VAL:
-            self.current_token = self.lexer.get_next_token()
+        if self.current_token.type == AND:
+            self.eat(AND)
             if self.literal():
-                temp1 = self.stack.pop()
                 temp2 = self.stack.pop()
+                temp1 = self.stack.pop()
                 self.stack.append(temp1 and temp2)
                 if self.and_tail():
                     return True
@@ -260,17 +278,15 @@ class Interpreter(object):
                     return False
             else:
                 return False
-        elif self.current_token.value in (EOF_VAL, RPAREN_VAL, OR_VAL, IMPLY_VAL1+IMPLY_VAL2):
+        elif self.current_token.type in (EOF, RPAREN, OR, IMPLY):
             return True
         else:
-            self.error(expecting='AND TAIL', got=self.current_token.type)
+            self.error(expecting=AND_TAIL_LIST, got=self.current_token.value)
             return False
 
-
-
     def literal(self):
-        if self.current_token.value == NOT_VAL:
-            self.current_token = self.lexer.get_next_token()
+        if self.current_token.type == NOT:
+            self.eat(NOT)
             if self.literal():
                 temp = self.stack.pop()
                 self.stack.append(not temp)
@@ -280,30 +296,30 @@ class Interpreter(object):
         elif self.atom():
             return True
         else:
-            self.error(expecting='LITERAL', got=self.current_token.type)
+            self.error(expecting=LITERAL_LIST, got=self.current_token.value)
             return False
 
     def atom(self):
-        if self.current_token.value == TRUE_VAL:
+        if self.current_token.type == TRUE:
+            self.eat(TRUE)
             self.stack.append(True)
-            self.current_token = self.lexer.get_next_token()
             return True
-        elif self.current_token.value == FALSE_VAL:
+        elif self.current_token.type == FALSE:
+            self.eat(FALSE)
             self.stack.append(False)
-            self.current_token = self.lexer.get_next_token()
             return True
-        elif self.current_token.value == LPAREN_VAL:
-            self.current_token = self.lexer.get_next_token()
+        elif self.current_token.type  == LPAREN:
+            self.eat(LPAREN)
             if self.imply_term():
-                if self.current_token.value == RPAREN_VAL:
-                    self.current_token = self.lexer.get_next_token()
+                if self.current_token.type == RPAREN:
+                    self.eat(RPAREN)
                     return True
                 else:
                     return False
             else:
                 return False
         else:
-            self.error(expecting='ATOM', got=self.current_token.type)
+            self.error(expecting=ATOM_LIST, got=self.current_token.value)
             return False
 
 
@@ -315,21 +331,24 @@ class Interpreter(object):
 
         """
         if self.bool_term():
-            print(str(self.stack))
+            return str(self.stack)
 
 
 def main():
     while True:
         try:
-            text = input('calc> ')
+            text = input('boolean expression> ')
         except EOFError:
             break
         if not text:
             continue
         lexer = Lexer(text)
         interpreter = Interpreter(lexer)
-        result = interpreter.eval()
-        print(result)
+        try:
+            result = interpreter.eval()
+            print(result)
+        except Exception as e:
+            print(str(e))
 
 
 if __name__ == '__main__':
