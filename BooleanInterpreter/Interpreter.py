@@ -113,7 +113,13 @@ class Lexer(object):
                 self.advance()
                 return Token(FALSE, FALSE_VAL)
 
+            if self.current_char == LPAREN_VAL:
+                self.advance()
+                return Token(LPAREN, LPAREN_VAL)
 
+            if self.current_char == RPAREN_VAL:
+                self.advance()
+                return Token(RPAREN, RPAREN_VAL)
 
         return Token(EOF, EOF_VAL)
 
@@ -186,15 +192,17 @@ class Interpreter(object):
     def imply_tail(self):
         if self.current_token.value == IMPLY_VAL1 + IMPLY_VAL2:
             self.current_token = self.lexer.get_next_token()
-            if self.or_tail():
+            if self.or_term():
                 if self.imply_tail():
+                    temp1 = self.stack.pop()
+                    temp2 = self.stack.pop()
+                    self.stack.append((not temp2) or temp1)
                     return True
                 else:
                     return False
             else:
                 return False
         elif self.current_token.value in (EOF_VAL, RPAREN_VAL):
-            self.current_token == self.lexer.get_next_token()
             return True
         else:
             self.error(expecting='IMPLY TAIL', got=self.current_token.type)
@@ -214,13 +222,15 @@ class Interpreter(object):
             self.current_token = self.lexer.get_next_token()
             if self.and_term():
                 if self.or_tail():
+                    temp1 = self.stack.pop()
+                    temp2 = self.stack.pop()
+                    self.stack.append(temp1 or temp2)
                     return True
                 else:
                     return False
             else:
                 return False
-        elif self.current_token.value in (IMPLY_VAL1+IMPLY_VAL2, EOF_VAL):
-            self.current_token = self.lexer.get_next_token()
+        elif self.current_token.value in (IMPLY_VAL1+IMPLY_VAL2, EOF_VAL, RPAREN_VAL):
             return True
         else:
             self.error(expecting='OR TAIL', got=self.current_token.type)
@@ -240,6 +250,9 @@ class Interpreter(object):
         if self.current_token.value == AND_VAL:
             self.current_token = self.lexer.get_next_token()
             if self.literal():
+                temp1 = self.stack.pop()
+                temp2 = self.stack.pop()
+                self.stack.append(temp1 and temp2)
                 if self.and_tail():
                     return True
                 else:
@@ -247,7 +260,6 @@ class Interpreter(object):
             else:
                 return False
         elif self.current_token.value in (EOF_VAL, RPAREN_VAL, OR_VAL, IMPLY_VAL1+IMPLY_VAL2):
-            self.current_token = self.lexer.get_next_token()
             return True
         else:
             self.error(expecting='AND TAIL', got=self.current_token.type)
@@ -280,6 +292,7 @@ class Interpreter(object):
             self.current_token = self.lexer.get_next_token()
             return True
         elif self.current_token.value == LPAREN_VAL:
+            self.current_token = self.lexer.get_next_token()
             if self.imply_term():
                 if self.current_token.value == RPAREN_VAL:
                     self.current_token = self.lexer.get_next_token()
