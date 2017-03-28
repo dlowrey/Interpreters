@@ -58,7 +58,11 @@ class Lexer(object):
         self.pos = 0  # self.pos used to index text
         self.current_char = text[self.pos]  # set the current_char to the first character in the text
 
-    def error(self, expecting=None, got=None):
+    @staticmethod
+    def error(expecting=None, got=None):
+        """Raise a detailed Invalid character error
+            Can be called with all, one, or no parameters.
+        """
         if expecting is not None:
             raise Exception('Expecting \'{expecting}\', got \'{got}\' instead.'.format(
                 expecting=expecting,
@@ -76,7 +80,9 @@ class Lexer(object):
             self.current_char = None
 
     def implies(self):
-        """Creates an imply '->' character
+        """Creates an imply '->' character for a Token
+            object from the input string.
+            error() otherwise
         """
         result = self.current_char
         self.advance()
@@ -95,10 +101,24 @@ class Lexer(object):
         """Lexical analyzer
 
         This method is responsible for breaking an input string apart
-        into tokens one at a time.
+        into tokens one at a time, until the EOF value is found.
+
+        Valid Tokens:
+                '.' (EOF)
+                ' ' (whitespace)
+                '^' (and)
+                'v' (or)
+                '->' (implies)
+                '~' (not)
+                'T' (true)
+                'F' (false)
+                '(' (left parenthesis)
+                ')' (right parenthesis)
+        error otherwise
         """
         while self.current_char is not EOF_VAL:
 
+            # EOF missing
             if self.current_char is None:
                 self.error(expecting=EOF_VAL, got=self.current_char)
 
@@ -137,9 +157,9 @@ class Lexer(object):
                 self.advance()
                 return Token(RPAREN, RPAREN_VAL)
             else:
-                self.error(got=self.current_char)
+                self.error(got=self.current_char)   # invalid character (?)
 
-        return Token(EOF, EOF_VAL)
+        return Token(EOF, EOF_VAL)  # EOF reached
 
 
 class Interpreter(object):
@@ -160,7 +180,9 @@ class Interpreter(object):
         self.current_token = self.lexer.get_next_token()
         self.stack = []
 
-    def error(self, expecting, got):
+    @staticmethod
+    def error(expecting, got):
+        """Raise a detailed Syntax error exception"""
         if expecting is not None and got is not None:
             raise Exception('Expecting \'{expecting}\', got \'{got}\' instead.'.format(
                 expecting=expecting,
@@ -169,7 +191,6 @@ class Interpreter(object):
         else:
             raise Exception('Syntax error')
 
-    # TODO: replace all instances of self.current_token = self.lexer.get_current_token() with self.eat(TOKEN EXPECTED)
     def eat(self, token_type):
         """Consume the token if the current token matches the passed token
 
@@ -187,7 +208,15 @@ class Interpreter(object):
         else:
             self.error(expecting=token_type, got=self.current_token.type)
 
-    def bool_term(self):
+    def bool_stmt(self):
+        """Bool_stmt non-terminal method
+
+        <B> := <IT>.
+        where <B> is Bool_stmt
+
+        :return: True if `self.current_token` starts and completes one of the RHS of an Bool_stmt rule above,
+                false otherwise
+        """
         if self.imply_term():
             if self.current_token.type == EOF:
                 return True
@@ -198,6 +227,15 @@ class Interpreter(object):
             return False
 
     def imply_term(self):
+        """Imply_term non-terminal method
+
+        <IT> := -> <OT><IT_Tail>
+                  :=
+        where <IT> is Imply_term
+
+        :return: True if `self.current_token` starts and completes one of the RHS of an Imply_term rule above,
+                false otherwise
+        """
         if self.or_term():
             if self.imply_tail():
                 return True
@@ -208,13 +246,22 @@ class Interpreter(object):
             return False
 
     def imply_tail(self):
+        """Imply_tail non-terminal method
+
+        <IT_Tail> := -> <OT><IT_Tail>
+                  :=
+        where <IT_Tail> is Imply_tail
+
+        :return: True if `self.current_token` starts and completes one of the RHS of an Imply_tail rule above,
+                false otherwise
+        """
         if self.current_token.type == IMPLY:
             self.eat(IMPLY)
             if self.or_term():
                 if self.imply_tail():
-                    temp2 = self.stack.pop()
+                    temp2 = self.stack.pop()     # the second argument is at the top of the stack
                     temp1 = self.stack.pop()
-                    self.stack.append((not temp1) or temp2)
+                    self.stack.append((not temp1) or temp2)     # T->F is equivalent to ~T or F
                     return True
                 else:
                     return False
@@ -227,6 +274,14 @@ class Interpreter(object):
             return False
 
     def or_term(self):
+        """Or_term non-terminal method
+
+        <OT> := <AT> <OT_Tail>
+        where <OT> is Or_term
+
+        :return: True if `self.current_token` starts and completes one of the RHS of an Or_term rule above,
+                false otherwise
+        """
         if self.and_term():
             if self.or_tail():
                 return True
@@ -237,6 +292,15 @@ class Interpreter(object):
             return False
 
     def or_tail(self):
+        """Or_tail non-terminal method
+
+        <OT_Tail> := v<AT> <OT_Tail>
+                  :=
+        where <OT_Tail> is Or_tail
+
+        :return: True if `self.current_token` starts and completes one of the RHS of an Or_tail rule above,
+                false otherwise
+        """
         if self.current_token.type == OR:
             self.eat(OR)
             if self.and_term():
@@ -256,6 +320,14 @@ class Interpreter(object):
             return False
 
     def and_term(self):
+        """And_term non-terminal method
+
+        <AT> := <L><AT_Tail>
+        where <AT> is And_term
+
+        :return: True if `self.current_token` starts and completes one of the of an And_term rule above,
+                false otherwise
+        """
         if self.literal():
             if self.and_tail():
                 return True
@@ -266,10 +338,19 @@ class Interpreter(object):
             return False
 
     def and_tail(self):
+        """And_tail non-terminal method
+
+        <AT_Tail> := ^ <L> <AT_Tail>
+                  :=
+        where <AT_Tail> is And_tail
+
+        :return: True if `self.current_token` starts and completes one of the RHS of an And_tail rule above,
+                false otherwise
+        """
         if self.current_token.type == AND:
             self.eat(AND)
             if self.literal():
-                temp2 = self.stack.pop()
+                temp2 = self.stack.pop()    # the second argument is at the top of the stack
                 temp1 = self.stack.pop()
                 self.stack.append(temp1 and temp2)
                 if self.and_tail():
@@ -285,6 +366,15 @@ class Interpreter(object):
             return False
 
     def literal(self):
+        """Literal non-terminal method
+
+        <L> := <A>
+            := ~<L>
+        where <L> is Literal
+
+        :return: True if `self.current_token`starts and completes one of the of a Literal rule above,
+                false otherwise
+        """
         if self.current_token.type == NOT:
             self.eat(NOT)
             if self.literal():
@@ -300,6 +390,15 @@ class Interpreter(object):
             return False
 
     def atom(self):
+        """Atom non-terminal method
+        <A> := T
+            := F
+            := (<IT>)
+        where <A> is Atom
+
+        :return: True if `self.current_token` starts and completes one of the RHS of an Atom rule above,
+                false otherwise
+        """
         if self.current_token.type == TRUE:
             self.eat(TRUE)
             self.stack.append(True)
