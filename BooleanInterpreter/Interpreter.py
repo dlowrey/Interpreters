@@ -84,9 +84,11 @@ class Lexer(object):
             object from the input string.
             error() otherwise
         """
+        # compile what should be a '->'
         result = self.current_char
         self.advance()
         result += self.current_char
+        
         if result == IMPLY_VAL:
             self.advance()
             return result
