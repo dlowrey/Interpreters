@@ -1,13 +1,22 @@
+"""BooleanInterpreter interprets boolean expressions according to a given grammar
+
+input: a string from the command line or terminal
+output: [True] or [False]
+
+Created by Dane Lowrey on 3/27/2017
+
+"""
+
+# Global constant variables
 EOF, EOF_VAL = 'EOF', '.'
 TRUE, TRUE_VAL = 'TRUE', 'T'
 FALSE, FALSE_VAL = 'FALSE', 'F'
 AND, AND_VAL = 'AND', '^'
 OR, OR_VAL = 'OR', 'v'
-IMPLY, IMPLY_VAL, IMPLY_VAL1, IMPLY_VAL2 = 'IMPLIES', '->','-', '>'
+IMPLY, IMPLY_VAL, IMPLY_VAL1, IMPLY_VAL2 = 'IMPLIES', '->', '-', '>'
 NOT, NOT_VAL = 'NOT', '~'
 LPAREN, LPAREN_VAL = 'LPAREN', '('
 RPAREN, RPAREN_VAL = 'RPAREN', ')'
-
 BOOL_LIST = '~ , T, F, or ('
 IMPLY_LIST = '~, T, F ('
 IMPLY_TAIL_LIST = '->, ., )'
@@ -17,7 +26,6 @@ AND_LIST = '~, T, F, ('
 AND_TAIL_LIST = '^, v, ->, ., )'
 LITERAL_LIST = 'T, F, (, ~'
 ATOM_LIST = 'T, F, ~, ('
-
 
 
 class Token(object):
@@ -88,7 +96,7 @@ class Lexer(object):
         result = self.current_char
         self.advance()
         result += self.current_char
-        
+
         if result == IMPLY_VAL:
             self.advance()
             return result
@@ -159,7 +167,7 @@ class Lexer(object):
                 self.advance()
                 return Token(RPAREN, RPAREN_VAL)
             else:
-                self.error(got=self.current_char)   # invalid character (?)
+                self.error(got=self.current_char)  # invalid character (?)
 
         return Token(EOF, EOF_VAL)  # EOF reached
 
@@ -261,9 +269,9 @@ class Interpreter(object):
             self.eat(IMPLY)
             if self.or_term():
                 if self.imply_tail():
-                    temp2 = self.stack.pop()     # the second argument is at the top of the stack
+                    temp2 = self.stack.pop()  # the second argument is at the top of the stack
                     temp1 = self.stack.pop()
-                    self.stack.append((not temp1) or temp2)     # T->F is equivalent to ~T or F
+                    self.stack.append((not temp1) or temp2)  # T->F is equivalent to ~T or F
                     return True
                 else:
                     return False
@@ -315,7 +323,7 @@ class Interpreter(object):
                     return False
             else:
                 return False
-        elif self.current_token.type in (IMPLY, EOF, RPAREN):   # selection set
+        elif self.current_token.type in (IMPLY, EOF, RPAREN):  # selection set
             return True
         else:
             self.error(expecting=OR_TAIL_LIST, got=self.current_token.value)
@@ -352,7 +360,7 @@ class Interpreter(object):
         if self.current_token.type == AND:
             self.eat(AND)
             if self.literal():
-                temp2 = self.stack.pop()    # the second argument is at the top of the stack
+                temp2 = self.stack.pop()  # the second argument is at the top of the stack
                 temp1 = self.stack.pop()
                 self.stack.append(temp1 and temp2)
                 if self.and_tail():
@@ -361,7 +369,7 @@ class Interpreter(object):
                     return False
             else:
                 return False
-        elif self.current_token.type in (EOF, RPAREN, OR, IMPLY):   # selection set
+        elif self.current_token.type in (EOF, RPAREN, OR, IMPLY):  # selection set
             return True
         else:
             self.error(expecting=AND_TAIL_LIST, got=self.current_token.value)
@@ -409,7 +417,7 @@ class Interpreter(object):
             self.eat(FALSE)
             self.stack.append(False)
             return True
-        elif self.current_token.type  == LPAREN:
+        elif self.current_token.type == LPAREN:
             self.eat(LPAREN)
             if self.imply_term():
                 if self.current_token.type == RPAREN:
@@ -422,8 +430,6 @@ class Interpreter(object):
         else:
             self.error(expecting=ATOM_LIST, got=self.current_token.value)
             return False
-
-
 
     def eval(self):
         """Boolean expression parser / interpreter
