@@ -294,10 +294,7 @@ class Interpreter(object):
                 the RHS of an Or_term rule above, false otherwise
         """
         if self.and_term():
-            if self.or_tail():
-                return True
-            else:
-                return False
+            return self.or_tail()
         else:
             self.error(expecting=OR_LIST, got=self.current_token.value)
             return False
