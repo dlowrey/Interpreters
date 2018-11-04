@@ -4,6 +4,11 @@ Consists of a Lexical analyzer and an interpeter for boolean expressions.
 
 Information on what a Grammer is can be found [here](https://en.wikibooks.org/wiki/Introduction_to_Programming_Languages/Grammars)
 
+## Run
+1. `git clone https://github.com/dlowrey/bool-interpreter.git`
+2. `cd bool-interpreter/BooleanInterpreter`
+3. `python interpreter.py` or `pythonN interpreter.py` where `N` is your python version if you have it set up that way.
+
 ## Language
 ```
 <B>       := <IT>.
