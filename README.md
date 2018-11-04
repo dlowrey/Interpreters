@@ -36,7 +36,7 @@ Valid Tokens:
 - `F` (false)
 - `(` (left parenthesis)
 - `)` (right parenthesis)
-error otherwise
+- error otherwise
 
 ## Examples:
 | Expression    | Evaluation    |
